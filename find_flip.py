@@ -13,6 +13,8 @@ def compute_flip(data, flips_ref, T, options):
     :param options: dict, contains various parameters to set
     :return: flips: numpy.ndarray, 1's and 0's indicating whether to flip a channel for a subject or not
     """
+    # * TODO: assert/check if data is a dict
+
     # * set default values
     options_flip = {"max_lag": 10,
                     "no_batch": 0,
@@ -22,7 +24,8 @@ def compute_flip(data, flips_ref, T, options):
                     "partial": 0,
                     "verbose": 1,
                     "max_cyc": 10000,
-                    "threshold": 0.00001}
+                    "threshold": 0.00001,
+                    "hierarchical_sol": 0}
 
     # * if options are specified, set their values here
     for key, value in options.items():
@@ -143,7 +146,8 @@ def get_global_variables_for_bitflip_eval(data, T, options):
     """
     # * Prepare necessary data structures
     # * check if data is already an array of autocorrelation matrices
-    if data[1].ndim == 3:
+    first_key = next(iter(data))
+    if data[first_key].ndim == 3:
         return data  # return data as the covmats_unflipped
     else:
         return get_all_cov_mats(data, options)  # returns covmats_unflipped
@@ -160,9 +164,15 @@ def get_all_cov_mats(data, options):
     no_subjects = len(data.keys())
     X_norm_all_sub = {} # * save all subjects' normalized data here
 
+    # * if we're performing hierarchical solution, the keys of the subject-data dict will be random
+    if options["hierarchical_sol"]:
+        subject_list = np.array(list(data.keys()))
+    else:
+        subject_list = np.arange(0, no_subjects)
+
     # * if standarization needs to be performed
     if options["standardize"]:
-        for subnum in range(1, no_subjects+1):
+        for subnum in subject_list:
             X = data[subnum].to_numpy()
 
             # * compute mean over each channel
@@ -195,7 +205,8 @@ def get_cov_mats(X_norm, options, *flips):
     :return: covmats_copy: numpy.ndarray, autocorrelation matrix that has all lags incorporated; size = (subjects x lags x channels x channels)
     """
     no_subject = len(X_norm.keys())
-    no_channels = X_norm[1].shape[1]
+    first_key = next(iter(X_norm))
+    no_channels = X_norm[first_key].shape[1]
     max_lag = options["max_lag"]
 
     # * if flips aren't specified, create an array of zeros
@@ -207,22 +218,29 @@ def get_cov_mats(X_norm, options, *flips):
     covmats_copy = copy.deepcopy(covmats)
     eps = 10 ** -8
 
-    for sub in range(1, no_subject+1):  # goes from 1 to 5
-        for chan in range(no_channels):  # goes from 0 to 19 for example
-            if flips[sub-1, chan] == 1:
-                X_norm[sub][chan] = -X_norm[sub][chan]
+    # again, if we're doing hierarchical stuff, the subject IDs/keys would be random
+    if options["hierarchical_sol"]:
+        subject_list = np.array(list(X_norm.keys()))
+    else:
+        subject_list = np.arange(1, no_subject+1)
 
-        covmats[sub-1, :, :, :] = lowmem_xcorr(X_norm[sub], max_lag)
+    for sub in range(len(subject_list)):  # goes from 0 to N-1 and not according to subject id/key
+        for chan in range(no_channels):  # goes from 0 to 19 for example
+            subject_key = subject_list[sub]
+            if flips[sub, chan] == 1:
+                X_norm[subject_key][chan] = -X_norm[subject_key][chan]
+
+        covmats[sub, :, :, :] = lowmem_xcorr(X_norm[subject_key], max_lag)
 
         for lags in range(2*max_lag + 1):
             # todo: need to implement the case of partial corr !!!
             # * extract the diagonal of the covariance matrix for the current lag value
-            diag = np.diagonal(covmats[sub-1, lags, :, :]).copy()
+            diag = np.diagonal(covmats[sub, lags, :, :]).copy()
             unit_matrix = np.eye(no_channels)
             np.fill_diagonal(unit_matrix, diag)
 
             # * subract the diagonal from the cov matrix for each lag, for each subject
-            covmats_copy[sub-1, lags, :, :] = np.subtract(covmats[sub-1, lags, :, :], unit_matrix)
+            covmats_copy[sub, lags, :, :] = np.subtract(covmats[sub, lags, :, :], unit_matrix)
 
     return covmats_copy  # return to 'get_all_cov_mats'
 

@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import copy
 
 def flip_data(data, T, flips):
@@ -10,22 +11,30 @@ def flip_data(data, T, flips):
     :return: output_df: Dataframe, "flipped" or corrected data
     """
 
-    # * TODO: check if data is a dict
+    # * TODO: assert/check if data is a dict
     no_subjects = len(data)
-    no_channels = data[1].shape[1]
+    first_key = next(iter(data))
+    no_channels = data[first_key].shape[1]
     data_copy = copy.deepcopy(data)
 
     output_df = pd.DataFrame()
 
-    for sub in range(no_subjects):
+    # * if we're doing hierarchical stuff, the subject IDs/keys would be random
+    subject_keys = np.array(list(data.keys()))
+    subject_list = subject_keys
+
+    print(subject_list)
+
+    for sub in range(len(subject_list)):
         for chan in range(no_channels):
+            subj_key = subject_list[sub]
             # * if the value of flips at the sub and chan is 1, flip all data for the sub and chan
-            if (flips[sub, chan] == 1):
-                data_copy[sub+1].iloc[:, chan] = -data_copy[sub+1].iloc[:, chan]
+            if flips[sub, chan] == 1:
+                data_copy[subj_key].iloc[:, chan] = -data_copy[subj_key].iloc[:, chan]
 
-        output_df = pd.concat([output_df, data_copy[sub+1]])
+        output_df = pd.concat([output_df, data_copy[subj_key]])
 
-
+    print("Done Flipping")
     return output_df
 
 

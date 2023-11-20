@@ -21,7 +21,7 @@ def compute_and_apply_flips(directory, ref_data_available, low_power_solution):
 
     # * a dict to help concatenate the dataframe for each subject
     amb_dict = {}
-    sub_no = 1
+    sub_no = 0
 
     # * load sign-ambiguous data
     directory_in_str = Path(directory)
@@ -50,7 +50,7 @@ def compute_and_apply_flips(directory, ref_data_available, low_power_solution):
         # * create df for all the original data (not ambiguously flipped)
         orig_files = sorted(Path(directory_in_str).glob('**/*unflipped*.mat'))  # read in the original unflipped files
         orig_dict = {}
-        sub = 1
+        sub = 0
         for file in orig_files:
             path_in_str = str(file)
             mat = scipy.io.loadmat(path_in_str)
@@ -80,14 +80,17 @@ def compute_and_apply_flips(directory, ref_data_available, low_power_solution):
         ntimepts = np.append(ntimepts, amb_dict[subject].shape[0])
 
     # * compute flips
-    if (low_power_solution == True):
-        subject_arr = [4,2]
-        flips = quick_flip(amb_dict, flips_ref, ntimepts, options, subject_arrangement=subject_arr)
+    if low_power_solution == True:
+        options = {"hierarchical_sol": 1,
+                   "max_cyc": 1000,
+                    "standardize": 1}
+        subject_arr = [4,2]  # * the arrangement to group subjects
+        flips = quick_flip(amb_dict, ntimepts, options, subject_arrangement=subject_arr)
     else:
         flips = compute_flip(amb_dict, flips_ref, ntimepts, options)
 
     # * flipping data
-    flipped_data = flip_data(amb_dict, ntimepts, flips, outputfiles=None, force=None)
+    flipped_data = flip_data(amb_dict, ntimepts, flips)
     print('Data Correctly Flipped')
 
 
@@ -106,11 +109,11 @@ def compute_ref_flips(amb_dict, orig_dict):
     no_subs = len(amb_dict.keys())
     flips_ref = np.zeros((no_subs, no_chans))
 
-    for s in range(1, no_subs+1):
+    for s in range(0, no_subs):
         for chan in range(no_chans):
             orig = orig_dict[s][chan].to_numpy()
             amb = amb_dict[s][chan].to_numpy()
             if np.array_equal(orig, amb) == False:
-                flips_ref[s-1, chan] = 1
+                flips_ref[s, chan] = 1
 
     return flips_ref
