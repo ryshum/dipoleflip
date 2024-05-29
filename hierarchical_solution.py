@@ -30,14 +30,16 @@ def quick_flip(data, T, options, subject_arrangement):
                     "partial": 0,
                     "verbose": 1,
                     "max_cyc": 10000,
-                    "threshold": 0.00001}
+                    "threshold": 0.00001,
+                    "hierarchical_sol": 1}
     # * we don't need reference_flips for hier. solution
     # * set ref flips to an empty array
     flips_ref = np.array([])
 
     # * if options are specified, set their values here
-    for key, value in options.items():
-        options_flip[key] = value
+    if options is not None:
+        for key, value in options.items():
+            options_flip[key] = value
 
     # * dividing into a hierarchy of subject groups
     levels = len(subject_arrangement)  # no of levels in the hierarchical division
@@ -67,7 +69,7 @@ def quick_flip(data, T, options, subject_arrangement):
         for g in range(no_of_groups):
             group_data = data_groups[g]
             T = new_T_groups[g]
-            flips_per_group[g] = compute_flip(group_data, flips_ref, T, options=options)
+            flips_per_group[g] = compute_flip(group_data, flips_ref, T, options=options_flip)
 
             # * flip data + combine the subject data in each group into one single "super-subject"
             output_data = flip_data(group_data, T, flips_per_group[g])

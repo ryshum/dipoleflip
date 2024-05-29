@@ -84,7 +84,7 @@ def compute_and_apply_flips(directory, ref_data_available, low_power_solution):
         options = {"hierarchical_sol": 1,
                    "max_cyc": 1000,
                     "standardize": 1}
-        subject_arr = [4,2]  # * the arrangement to group subjects
+        subject_arr = [5,1]  # * the arrangement to group subjects # todo fix
         flips = quick_flip(amb_dict, ntimepts, options, subject_arrangement=subject_arr)
     else:
         flips = compute_flip(amb_dict, flips_ref, ntimepts, options)
