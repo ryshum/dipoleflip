@@ -5,6 +5,7 @@ import copy
 import random
 import numpy as np
 
+
 def quick_flip(data, T, options, subject_arrangement):
     """
         This function computes the flips in a 'hierarchical' manner.

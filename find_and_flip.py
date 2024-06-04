@@ -25,30 +25,23 @@ def compute_and_apply_flips(directory, ref_data_available, low_power_solution):
 
     # * load sign-ambiguous data
     directory_in_str = Path(directory)
-    matfiles = sorted(Path(directory_in_str).glob('**/*_ambiguous_data.mat'))
+    convention = '**/*ambiguous*.mat'
+    matfiles = sorted(Path(directory_in_str).glob(convention), key=lambda path: int(path.stem.rsplit("subject_", 1)[1]))
     for matfile in matfiles:
         path_in_str = str(matfile)
         mat = scipy.io.loadmat(path_in_str)
 
-        struct = mat['S']  # specify the struct in the .mat file that holds all data and info
-        struct_fields = struct.dtype  # get names of the fields in the struct
-
-        # * for convenience make dictionary using field names
-        struct_data = {n: struct[n][0, 0] for n in struct_fields.names}
-
-        # * specify the data field and get data from the struct and arrange in dataframe
-        df = pd.DataFrame(struct_data['data'])
+        data = mat['data']  # the struct in the .mat file that holds all data
+        df = pd.DataFrame(data)
 
         # * save this dataframe with the other subjects'
-        amb_dict[sub_no] = df  # TODO: should change the key to a simpler subject number
+        amb_dict[sub_no] = df
         sub_no = sub_no + 1
-
-    # * concatenate all subjects into single dict of df
-    pd.concat(amb_dict)
 
     if (ref_data_available == 1):
         # * create df for all the original data (not ambiguously flipped)
-        orig_files = sorted(Path(directory_in_str).glob('**/*unflipped*.mat'))  # read in the original unflipped files
+        convention = '**/*unflipped*.mat'
+        orig_files = sorted(Path(directory_in_str).glob(convention), key=lambda path: int(path.stem.rsplit("subject_", 1)[1]))  # read in the original unflipped files
         orig_dict = {}
         sub = 0
         for file in orig_files:
@@ -56,7 +49,7 @@ def compute_and_apply_flips(directory, ref_data_available, low_power_solution):
             mat = scipy.io.loadmat(path_in_str)
 
             # * specify the field name containing the data
-            df = pd.DataFrame(mat['X_MAR'])
+            df = pd.DataFrame(mat['data'])
             # * create a dict of dataframes to store all the subject data.
             orig_dict[sub] = df # * appends the original data for each subject to the dict
             sub = sub+1
@@ -66,7 +59,6 @@ def compute_and_apply_flips(directory, ref_data_available, low_power_solution):
 
     else:
         flips_ref = np.array([])
-
 
     # * specifying options  #TODO: ADD VARYING RUNS HERE
     options = {
@@ -113,7 +105,13 @@ def compute_ref_flips(amb_dict, orig_dict):
         for chan in range(no_chans):
             orig = orig_dict[s][chan].to_numpy()
             amb = amb_dict[s][chan].to_numpy()
-            if np.array_equal(orig, amb) == False:
-                flips_ref[s, chan] = 1
+
+            # check if we're even reading the data for the same subject and channel
+            # the abs value of the array isn't equal - error
+            if np.array_equal(np.absolute(orig), np.absolute(amb)) is False:
+                raise Exception(f"The absolute values for Channel {chan+1} for Subject {s+1} in the ambiguous and ground-truth data are not equal")
+            else:
+                if np.array_equal(orig, amb) == False:
+                    flips_ref[s, chan] = 1
 
     return flips_ref

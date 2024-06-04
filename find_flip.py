@@ -60,7 +60,7 @@ def compute_flip(data, flips_ref, T, options):
         # * adding the initial score to the overall score matrix/path
         score_path_per_run[0] = score_r
 
-        # * compute accuracuy only if reference flips are present
+        # * compute accuracy only if reference flips are present
         if (no_ref_flips == False):
             accuracy_path_per_run = np.empty([1, 1])
             accuracy = get_accuracy(flips_per_run, flips_ref)
@@ -222,7 +222,7 @@ def get_cov_mats(X_norm, options, *flips):
     if options["hierarchical_sol"]:
         subject_list = np.array(list(X_norm.keys()))
     else:
-        subject_list = np.arange(1, no_subject+1)
+        subject_list = np.arange(0, no_subject)
 
     for sub in range(len(subject_list)):  # goes from 0 to N-1 and not according to subject id/key
         for chan in range(no_channels):  # goes from 0 to 19 for example
