@@ -4,45 +4,41 @@ assumption that the lagged partial correlation between each pair of brain region
 has the same sign across subjects.
 
 ## Getting Started
-### Prerequisites
-
-What things you need to install the software and how to install them
-
-- numpy, pandas, scipy
-```
-pip install numpy
-pip install pandas
-pip install scipy
-```
-
-### Installing
+### Method 1. Running Jupyter Notebooks
+#### 1. Clone Repository
 You can clone the repository via:
 
 ```
 git clone https://github.com/ryshum/dipoleflip
 ```
+#### 2. Setting up a conda environment 
 
+Three packages are required to run the notebooks: numpy, pandas, scipy, jupyter-lab.
+
+
+A ```requirements.txt``` file has been provided with all the essential packages required. This file can be used
+to set up a new conda environment (pip not possible yet) which allows you to run the jupyter notebooks.
+
+To set up a new conda environment called "test", type in the following command in your terminal:
+
+```conda create -c conda-forge --name test --file requirements.txt```
+
+The command will create a new conda environment called 'test' with all the packages installed. Activate it by:
+
+```conda activate test```
+
+You can now launch jupyter notebooks using the command in terminal:
+
+```jupyter lab```
+
+
+### Method 2. Running the pypi package (in progress)
 Once the package is published to pypi, you'd be able to install it via:
 
 ```
 pip install dipoleflip
 ```
 
-
-
-## Running the tests
-
-The program assumes that your data folder is located in the same directory as the scripts.
-To run the algorithm, the following command can be used in 
-command line:
-
-```
-python initiate_flips.py modulename.functionname no_of_subjects no_of_channels method_for_computation
-
-% Examples
-python initiate_flips.py grid_search.grid_search 10 10 Hierarchical
-python initiate_flips.py grid_search.grid_search 25 10 Normal
-```
 
 ## Authors
 
@@ -56,6 +52,3 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 ## Acknowledgments
 
-* Hat tip to anyone whose code was used
-* Inspiration
-* etc
