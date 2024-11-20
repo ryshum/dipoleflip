@@ -32,7 +32,9 @@ def quick_flip(data, T, options, subject_arrangement):
                     "verbose": 1,
                     "max_cyc": 10000,
                     "threshold": 0.00001,
-                    "hierarchical_sol": 1}
+                    "hierarchical_sol": 1,
+                    "record_results": 0}
+
     # * we don't need reference_flips for hier. solution
     # * set ref flips to an empty array
     flips_ref = np.array([])
@@ -49,6 +51,12 @@ def quick_flip(data, T, options, subject_arrangement):
     helper_dict = {}  # * saves the group info for each level of grouping
     old_T = T
     flip_helper = {}  # * save the flips for each group per level
+
+    # to record results
+    if options["record_results"] == 1:
+        score_path_per_level = {}
+        accuracy_path_per_level = {}
+
     for level in range(levels):
         # * 1. Creating the GROUPS for the current level
         subjID_list_per_group = make_groups(subject_arrangement=subject_arrangement, level=level, curr_data=curr_data)
@@ -63,14 +71,22 @@ def quick_flip(data, T, options, subject_arrangement):
         # * 3. Grouping DATA into the groups created earlier
         data_groups = get_subject_data(data=curr_data, helper_dict=helper_dict, level=level)  # * create data grouping here
 
-        # Computation------------------------------------------------------------------------------------------
+        # Computation ------------------------------------------------------------------------------------------
         # * perform computation on each of the groups
+
+        if options["record_results"] == 1:
+            score_path_per_group = {}
+            accuracy_path_per_group = {}
+
         flips_per_group = {}
         new_groups = {}
         for g in range(no_of_groups):
             group_data = data_groups[g]
             T = new_T_groups[g]
-            flips_per_group[g] = compute_flip(group_data, flips_ref, T, options=options_flip)
+            if options["record_results"] == 1:
+                [flips_per_group[g], score_path_per_group[g], accuracy_path_per_group[g]] = compute_flip(group_data, flips_ref, T, options=options_flip)
+            else:
+                flips_per_group[g] = compute_flip(group_data, flips_ref, T, options=options_flip)
 
             # * flip data + combine the subject data in each group into one single "super-subject"
             output_data = flip_data(group_data, T, flips_per_group[g])
@@ -88,9 +104,18 @@ def quick_flip(data, T, options, subject_arrangement):
         curr_data = new_groups
         old_T = new_T_groups
 
+        # * if we want to record results for plotting, save all the groups' results in the current level
+        if options["record_results"] == 1:
+            score_path_per_level[level] = score_path_per_group
+            accuracy_path_per_level[level] = accuracy_path_per_group
+
     # * compute a flips matrix that caters for all subjects and how many times each subject has been flipped
     the_flips_matrix = flippidydoo(flip_helper=flip_helper, helper_dict=helper_dict)
-    return the_flips_matrix
+
+    if options["record_results"] == 1:
+        return [the_flips_matrix, score_path_per_level, accuracy_path_per_level]
+    else:
+        return the_flips_matrix
 
 
 def get_subject_data(data, helper_dict, level):

@@ -1,6 +1,8 @@
 import copy
 import numpy as np
 import random
+import pandas as pd
+import pingouin
 
 def compute_flip(data, flips_ref, T, options):
     """
@@ -25,7 +27,8 @@ def compute_flip(data, flips_ref, T, options):
                     "verbose": 1,
                     "max_cyc": 10000,
                     "threshold": 0.00001,
-                    "hierarchical_sol": 0}
+                    "hierarchical_sol": 0,
+                    "record_results": 0}
 
     # * if options are specified, set their values here
     for key, value in options.items():
@@ -34,8 +37,8 @@ def compute_flip(data, flips_ref, T, options):
     # * get uncorrected, unflipped autocorrelation matrix - [subj x lags x channels x channels]
     covmats_unflipped = get_global_variables_for_bitflip_eval(data, T, options_flip)
 
-    # * if reference flips (i.e. ground truth data isn't available), set to true
-    if (flips_ref.size == 0):
+    # * if reference flips (i.e. ground truth data) isn't available, set to true
+    if flips_ref.size == 0:
         no_ref_flips = True
     else:
         no_ref_flips = False
@@ -44,7 +47,6 @@ def compute_flip(data, flips_ref, T, options):
     no_channels = covmats_unflipped.shape[2]
     score = -float('Inf')
 
-    #TODO - implement flops?
     score_path = list()  # * holds score for all runs
     accuracy_path = list() # * holds the accuracy for all runs
     assert float(options_flip['max_cyc']) != float('inf') and options_flip['no_batch'] <= 0, 'If max_cyc is inf, no_batch must be 0'
@@ -61,14 +63,14 @@ def compute_flip(data, flips_ref, T, options):
         score_path_per_run[0] = score_r
 
         # * compute accuracy only if reference flips are present
-        if (no_ref_flips == False):
+        if no_ref_flips == False:
             accuracy_path_per_run = np.empty([1, 1])
             accuracy = get_accuracy(flips_per_run, flips_ref)
             # * adding the initial accuracy to the accuracy matrix
             accuracy_path_per_run[0] = accuracy
 
         if options_flip['verbose'] == 1:
-            if (no_ref_flips == False):
+            if no_ref_flips == False:
                 print('Run ' + str(runs) + ' Initial Score ' + str(score_r) + ' Initial Accuracy ' + str(accuracy))
             else:
                 print('Run ' + str(runs) + ' Initial Score ' + str(score_r))
@@ -133,7 +135,11 @@ def compute_flip(data, flips_ref, T, options):
         if np.mean(flips[subs]) > 0.5:
             flips[subs] = 1 - flips[subs]
 
-    return flips
+    # do we want to get iterations vs. score vs. accuracy plots
+    if options_flip["record_results"] == 1:
+        return [flips, score_path, accuracy_path]
+    else:
+        return flips
 
 
 def get_global_variables_for_bitflip_eval(data, T, options):
@@ -258,10 +264,13 @@ def lowmem_xcorr(X_norm, max_lag):
 
     lags = np.arange(-max_lag, max_lag+1, 1)
     embedded_data = embed_data(X_norm, no_samples, lags)
-    # print(embedded_data)
 
     # * compute correlation of embedded data
-    corr = np.cov(embedded_data, rowvar=False)
+    col_names = ["ch_" + str(i) for i in np.arange(embedded_data.shape[1])]
+    df = pd.DataFrame(data=embedded_data, columns=col_names)
+    # * compute partial correlations
+    partial_corr = df.pcorr().round(3)
+    corr = partial_corr.to_numpy()
 
     # *
     no_lags = 2*max_lag + 1

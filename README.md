@@ -13,7 +13,7 @@ git clone https://github.com/ryshum/dipoleflip
 ```
 #### 2. Setting up a conda environment 
 
-Three packages are required to run the notebooks: numpy, pandas, scipy, jupyter-lab.
+Four packages are required to run the notebooks: `numpy`, `pandas`, `scipy` and `jupyter-lab`.
 
 
 A ```requirements.txt``` file has been provided with all the essential packages required. This file can be used

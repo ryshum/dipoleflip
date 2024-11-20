@@ -5,19 +5,21 @@ import pandas as pd
 from find_flip import compute_flip
 from flip_data import flip_data
 from hierarchical_solution import quick_flip
+from plots import create_plots
 
 
-def compute_and_apply_flips(directory, ref_data_available, low_power_solution):
+def compute_and_apply_flips(directory, ref_data_available, low_power_solution, record_results):
     """
     This function computes the "flips" for the data in the passed directory using the proposed
     algorithm and then applies these flips onto the data to provide the "corrected" data.
-    :param directory: location of the data
+    :param directory: string showing location of the data
     :param ref_data_available: boolean showing whether ground-truth data is available or not
     :param low_power_solution: boolean showing whether a more efficient, quicker algorithm should be employed
+    :param record_results: boolean showing whether the results need to be recorded for plotting later on
     :return:
     """
 
-    print('Currently computing the data in: ' + str(directory))
+    print('Currently computing solution for the data in: ' + str(directory))
 
     # * a dict to help concatenate the dataframe for each subject
     amb_dict = {}
@@ -31,14 +33,16 @@ def compute_and_apply_flips(directory, ref_data_available, low_power_solution):
         path_in_str = str(matfile)
         mat = scipy.io.loadmat(path_in_str)
 
-        data = mat['data']  # the struct in the .mat file that holds all data
+        struct = mat['my_struct']  # the struct in the .mat file that holds all data
+        val = struct[0,0]
+        data = val['data']
         df = pd.DataFrame(data)
 
         # * save this dataframe with the other subjects'
         amb_dict[sub_no] = df
         sub_no = sub_no + 1
 
-    if (ref_data_available == 1):
+    if ref_data_available == 1:
         # * create df for all the original data (not ambiguously flipped)
         convention = '**/*unflipped*.mat'
         orig_files = sorted(Path(directory_in_str).glob(convention), key=lambda path: int(path.stem.rsplit("subject_", 1)[1]))  # read in the original unflipped files
@@ -63,7 +67,8 @@ def compute_and_apply_flips(directory, ref_data_available, low_power_solution):
     # * specifying options  #TODO: ADD VARYING RUNS HERE
     options = {
         "max_cyc": 1000,
-        "standardize": 1
+        "standardize": 1,
+        "record_results": record_results
     }
 
     # * obtaining ntimepts (T) for each subject
@@ -71,19 +76,32 @@ def compute_and_apply_flips(directory, ref_data_available, low_power_solution):
     for subject in amb_dict.keys():
         ntimepts = np.append(ntimepts, amb_dict[subject].shape[0])
 
-    # * compute flips
-    if low_power_solution == True:
+    # * compute flips using the Hierarchical Solution
+    if low_power_solution is True:
         options = {"hierarchical_sol": 1,
                    "max_cyc": 1000,
-                    "standardize": 1}
-        subject_arr = [5,1]  # * the arrangement to group subjects # todo fix
-        flips = quick_flip(amb_dict, ntimepts, options, subject_arrangement=subject_arr)
+                   "standardize": 1,
+                   "record_results": record_results}
+        subject_arr = [20, 4, 1]  # * the arrangement to group subjects # todo fix where to specify this
+        if record_results == 1:
+            [flips, scores_per_level, accuracies_per_level] = quick_flip(amb_dict, ntimepts, options, subject_arrangement=subject_arr)
+            create_plots(scores_per_level, accuracies_per_level, low_power_solution)
+        else:
+            flips = quick_flip(amb_dict, ntimepts, options, subject_arrangement=subject_arr)
+
+    # * compute flips using normal method
     else:
-        flips = compute_flip(amb_dict, flips_ref, ntimepts, options)
+        if record_results == 1:
+            [flips, score, accuracy] = compute_flip(amb_dict, flips_ref, ntimepts, options)
+            create_plots(score, accuracy, low_power_solution)
+        else:
+            flips = compute_flip(amb_dict, flips_ref, ntimepts, options)
+
 
     # * flipping data
     flipped_data = flip_data(amb_dict, ntimepts, flips)
     print('Data Correctly Flipped')
+    # todo: write data to file?
 
 
 
