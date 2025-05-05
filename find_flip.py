@@ -15,7 +15,9 @@ def compute_flip(data, flips_ref, T, options):
     :param options: dict, contains various parameters to set
     :return: flips: numpy.ndarray, 1's and 0's indicating whether to flip a channel for a subject or not
     """
-    # * TODO: assert/check if data is a dict
+
+    # * assert/check if data is a dict of dfs
+    assert dict(data), "Data should be a 'dict' of Dataframes containing data for all subjects"
 
     # * set default values
     options_flip = {"max_lag": 10,
@@ -23,12 +25,12 @@ def compute_flip(data, flips_ref, T, options):
                     "no_runs": 5,
                     "prob_init_flip": 0.25,
                     "standardize": 1,
-                    "partial": 0,
+                    "partial": 1,
                     "verbose": 1,
                     "max_cyc": 10000,
                     "threshold": 0.00001,
                     "hierarchical_sol": 0,
-                    "record_results": 0}
+                    "record_results": False}
 
     # * if options are specified, set their values here
     for key, value in options.items():
@@ -63,14 +65,14 @@ def compute_flip(data, flips_ref, T, options):
         score_path_per_run[0] = score_r
 
         # * compute accuracy only if reference flips are present
-        if no_ref_flips == False:
+        if not no_ref_flips:
             accuracy_path_per_run = np.empty([1, 1])
             accuracy = get_accuracy(flips_per_run, flips_ref)
             # * adding the initial accuracy to the accuracy matrix
             accuracy_path_per_run[0] = accuracy
 
         if options_flip['verbose'] == 1:
-            if no_ref_flips == False:
+            if not no_ref_flips:
                 print('Run ' + str(runs) + ' Initial Score ' + str(score_r) + ' Initial Accuracy ' + str(accuracy))
             else:
                 print('Run ' + str(runs) + ' Initial Score ' + str(score_r))
@@ -97,12 +99,12 @@ def compute_flip(data, flips_ref, T, options):
                 score_path_per_run = np.append(score_path_per_run, score_r)  # * append when score is greater than previous
 
                 # * compute accuracy
-                if (no_ref_flips == False):
+                if not no_ref_flips:
                     accuracy = get_accuracy(flips_per_run, flips_ref)
                     accuracy_path_per_run = np.append(accuracy_path_per_run, accuracy)
 
                 if options_flip['verbose'] == 1:
-                    if (no_ref_flips == False):
+                    if not no_ref_flips:
                         print('Run '+str(runs)+' Cycle '+str(cyc)+' Score '+str(score_r)+' Accuracy '+str(accuracy)+' Flipped channel: '+str(max_channel)+' Flipped subject: '+str(max_sub))
                     else:
                         print('Run ' + str(runs) + ' Cycle ' + str(cyc) + ' Score ' + str(score_r) +' Flipped channel: '+str(max_channel)+' Flipped subject: '+str(max_sub))
@@ -118,7 +120,7 @@ def compute_flip(data, flips_ref, T, options):
         score_path.append(score_path_per_run)
 
         # * append accuracies
-        if (no_ref_flips == False):
+        if not no_ref_flips:
             accuracy_path.append(accuracy_path_per_run)
 
         # * if greatest score (end of score_path) is greater than -inf
@@ -136,7 +138,7 @@ def compute_flip(data, flips_ref, T, options):
             flips[subs] = 1 - flips[subs]
 
     # do we want to get iterations vs. score vs. accuracy plots
-    if options_flip["record_results"] == 1:
+    if options_flip["record_results"]:
         return [flips, score_path, accuracy_path]
     else:
         return flips
@@ -239,13 +241,12 @@ def get_cov_mats(X_norm, options, *flips):
         covmats[sub, :, :, :] = lowmem_xcorr(X_norm[subject_key], max_lag)
 
         for lags in range(2*max_lag + 1):
-            # todo: need to implement the case of partial corr !!!
             # * extract the diagonal of the covariance matrix for the current lag value
             diag = np.diagonal(covmats[sub, lags, :, :]).copy()
             unit_matrix = np.eye(no_channels)
             np.fill_diagonal(unit_matrix, diag)
 
-            # * subract the diagonal from the cov matrix for each lag, for each subject
+            # * subtract the diagonal from the cov matrix for each lag, for each subject
             covmats_copy[sub, lags, :, :] = np.subtract(covmats[sub, lags, :, :], unit_matrix)
 
     return covmats_copy  # return to 'get_all_cov_mats'
@@ -268,7 +269,8 @@ def lowmem_xcorr(X_norm, max_lag):
     # * compute correlation of embedded data
     col_names = ["ch_" + str(i) for i in np.arange(embedded_data.shape[1])]
     df = pd.DataFrame(data=embedded_data, columns=col_names)
-    # * compute partial correlations
+
+    # * compute pairwise partial correlations (raw Pearson correlation)
     partial_corr = df.pcorr().round(3)
     corr = partial_corr.to_numpy()
 

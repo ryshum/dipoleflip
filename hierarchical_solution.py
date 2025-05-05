@@ -28,12 +28,12 @@ def quick_flip(data, T, options, subject_arrangement):
                     "no_runs": 5,
                     "prob_init_flip": 0.25,
                     "standardize": 1,
-                    "partial": 0,
+                    "partial": 1,
                     "verbose": 1,
                     "max_cyc": 10000,
                     "threshold": 0.00001,
                     "hierarchical_sol": 1,
-                    "record_results": 0}
+                    "record_results": False}
 
     # * we don't need reference_flips for hier. solution
     # * set ref flips to an empty array
@@ -53,7 +53,7 @@ def quick_flip(data, T, options, subject_arrangement):
     flip_helper = {}  # * save the flips for each group per level
 
     # to record results
-    if options["record_results"] == 1:
+    if options["record_results"]:
         score_path_per_level = {}
         accuracy_path_per_level = {}
 
@@ -73,8 +73,7 @@ def quick_flip(data, T, options, subject_arrangement):
 
         # Computation ------------------------------------------------------------------------------------------
         # * perform computation on each of the groups
-
-        if options["record_results"] == 1:
+        if options["record_results"]:
             score_path_per_group = {}
             accuracy_path_per_group = {}
 
@@ -83,7 +82,7 @@ def quick_flip(data, T, options, subject_arrangement):
         for g in range(no_of_groups):
             group_data = data_groups[g]
             T = new_T_groups[g]
-            if options["record_results"] == 1:
+            if options["record_results"]:
                 [flips_per_group[g], score_path_per_group[g], accuracy_path_per_group[g]] = compute_flip(group_data, flips_ref, T, options=options_flip)
             else:
                 flips_per_group[g] = compute_flip(group_data, flips_ref, T, options=options_flip)
@@ -91,10 +90,10 @@ def quick_flip(data, T, options, subject_arrangement):
             # * flip data + combine the subject data in each group into one single "super-subject"
             output_data = flip_data(group_data, T, flips_per_group[g])
 
-            # * save
+            # * save the same group after flipping the signs in that group
             new_groups[g] = output_data
 
-            # change T adequately
+            # change T adequately - data length changes because subjects in a group combine to make a "super-subject"
             new_T_groups[g] = len(new_groups[g])
 
         # * save the flips for all groups computed in this level
@@ -105,14 +104,14 @@ def quick_flip(data, T, options, subject_arrangement):
         old_T = new_T_groups
 
         # * if we want to record results for plotting, save all the groups' results in the current level
-        if options["record_results"] == 1:
+        if options["record_results"]:
             score_path_per_level[level] = score_path_per_group
             accuracy_path_per_level[level] = accuracy_path_per_group
 
     # * compute a flips matrix that caters for all subjects and how many times each subject has been flipped
     the_flips_matrix = flippidydoo(flip_helper=flip_helper, helper_dict=helper_dict)
 
-    if options["record_results"] == 1:
+    if options["record_results"]:
         return [the_flips_matrix, score_path_per_level, accuracy_path_per_level]
     else:
         return the_flips_matrix
@@ -130,7 +129,7 @@ def get_subject_data(data, helper_dict, level):
     if level == 0:  # * i.e., we're grouping for the first time
         # * obtain the grouping information for the current level
         current_groups = helper_dict[level]
-        data_for_all_groups = []  # * list of dicts to hold the data for all the groups in the current levell
+        data_for_all_groups = []  # * list of dicts to hold the data for all the groups in the current level
         for group in range(len(current_groups)):
             subj_list = current_groups[group]
             data_for_curr_group = dict()  # * dict to hold the data for all subs in curr group
@@ -225,7 +224,7 @@ def make_groups(subject_arrangement, level, curr_data):
 
 def flippidydoo(flip_helper, helper_dict):
     """
-    Note: I promise I will change the name one day.
+    Note: I promise I will change the name one day. But not today.
     This function helps generate a final flips matrix "them_flips" once subjects in each group at each level have been flipped.
     It caters for subjects that may have been flipped multiple times.
 
@@ -240,11 +239,11 @@ def flippidydoo(flip_helper, helper_dict):
     no_of_channels = flip_helper[0][0].shape[1]
     subject_channel_matrix = np.zeros((no_of_subjects, no_of_channels))
 
-    # * go back from the last level to the first level of grouping
+    # * go up in the hierarchy from the lowest level to the first, top-most level of grouping
     for level in range(total_levels)[::-1]:
         no_groups_in_curr_level = len(flip_helper[level])
         for group in range(no_groups_in_curr_level):
-            no_of_subjects = len(flip_helper[level][group]) # * could be normal or super-subjects
+            no_of_subjects = len(flip_helper[level][group]) # * could be normal or super-subjects in a group
             for sub in range(no_of_subjects):
                 flips_per_sub = flip_helper[level][group][sub]
                 channels_flipped = np.where(flips_per_sub == 1)
@@ -253,7 +252,7 @@ def flippidydoo(flip_helper, helper_dict):
                         # * retrieve which smaller subjects this super-subject is composed of
                         subs = retrieve_subjects(helper_dict, level, group, sub)
                     else:  # when we're dealing with subjects in groups at level 0
-                        subs = sub
+                        subs = helper_dict[level][group][sub]
 
                     # * add the no. of times a channel for a subject has been flipped
                     for chans in channels_flipped[0]:
@@ -263,6 +262,7 @@ def flippidydoo(flip_helper, helper_dict):
                 else:
                     continue
 
+    # * create the binary flips matrix
     them_flips = np.zeros([subject_channel_matrix.shape[0], subject_channel_matrix.shape[1]])
     for subs in range(subject_channel_matrix.shape[0]):
         for channels in range(subject_channel_matrix.shape[1]):
@@ -276,8 +276,8 @@ def flippidydoo(flip_helper, helper_dict):
 
 def retrieve_subjects(helper_dict, l, g, s):
     """
-    This function retrieves the unit subjects that a super-subject is comprised of. This is because once subjects are grouped and the
-    algorithm is run on this group, the group is then treated as a "super"-subject and we need to know what "smaller" subjects
+    This function retrieves the unit subjects that a super-subject is composed of. This is because once subjects are grouped and the
+    algorithm is run on this group, the group is then treated as a "super-subject", and we need to know what "smaller" subjects
     combined to form this "super"-subject
     Usage: flippidydoo()
     :param helper_dict: dict, contains all groupings
@@ -289,13 +289,17 @@ def retrieve_subjects(helper_dict, l, g, s):
     curr_level = l  # * this is also the number of previous levels
     super_subject = helper_dict[curr_level][g][s]
 
-    for prev_level in range(curr_level)[::-1]:
-        if prev_level == 0:  # i.e. the first level of grouping
-            unit_subjects = helper_dict[prev_level][super_subject]  # * subjects combining to form the current super-subject
-            break
-        else:
-            prev_super_subjects = helper_dict[prev_level][super_subject]
-            for subs in prev_super_subjects:
-                unit_subjects = retrieve_subjects(helper_dict, prev_level, super_subject, subs)
+    prev_level = curr_level - 1
+    if prev_level == 0:  # i.e. the first level of grouping
+        unit_subjects = helper_dict[prev_level][super_subject]  # * subjects combining to form the current super-subject
 
+    else:
+        # the 'super-subject' is the group number in the previous level
+        no_of_prev_super_subjects = len(helper_dict[prev_level][super_subject])
+        unit_subjects = np.empty((0, 1), dtype=int)
+        for subs in range(no_of_prev_super_subjects):
+                unit_subs = retrieve_subjects(helper_dict, prev_level, super_subject, subs)
+                unit_subjects = np.append(unit_subjects, unit_subs)
+
+    #print(f"Unit Subjects: {unit_subjects}")
     return unit_subjects

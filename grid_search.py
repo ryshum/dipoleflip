@@ -1,7 +1,6 @@
 from pathlib import Path
 from find_and_flip import compute_and_apply_flips
 
-
 # Our data is arranged in the following manner:
 # For each configuration {i.e., no. of channels , no. of subjects} there exists a folder which contains
 # [2*no. of subjects] files. Half of these are the ground-truth/reference files ("unflipped_data_...") and the rest are
@@ -10,13 +9,20 @@ from find_and_flip import compute_and_apply_flips
 
 
 def grid_search(subjects, channels, options):
-    # * read in the main directory that contains directories for all possible prob-subject pairs
+    """
+    Read in data from the main directory that contains directories for all possible subject-channel pairs e.g. "20_subs_10_chs".
+    See comments above.
+    :param subjects: list of no. of subjects in the datasets on which sign-flip is to be performed
+    :param channels: list of no. of channels in the data files on which sign-flip is to be performed
+    :param options: dict of different parameter that will be used to call functions to flip data
+    :return:
+    """
 
     # * set default values
     options_grid_search = {"main_dir": Path('.').cwd(),
                     "method_name": 'Normal',
                     "ref_data_available": False,
-                    "record_results": 1
+                    "record_results": True
                     }
 
     # * if options are specified, set their values here
@@ -30,10 +36,11 @@ def grid_search(subjects, channels, options):
     elif options_grid_search['method_name'] == 'Hierarchical':
         low_power_solution = True
 
+    assert subjects is not None and channels is not None, 'Number of subjects and channels in your data configuration have not been specified'
 
-    if subjects is None and channels is None: #todo; need a better solution for when the user doesn't specify subs and chans
+    if subjects is None and channels is None: # todo this if statement can be gotten rid of
         # * to go through the desired data folders
-        subjects = [10]  # e.g., subjects = [5, 10, 25, 50]
+        subjects = [10]  # e.g., subjects = [10, 25, 50, 100]
         channels = [10]  # e.g., channels = [10, 20, 30, 40, 50]
 
         for sub in subjects:

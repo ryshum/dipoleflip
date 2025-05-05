@@ -6,7 +6,7 @@ def create_plots(score_path, accuracy_path, low_power_solution):
     """
     This function creates 2 types of plots for the solution obtained for the specified dataset:
     1. A Score Vs. Iterations plot
-    2. An Accuracy Vs. Iteration plot
+    2. An Accuracy Vs. Iteration plot (for normal method and not hierarchical)
 
     :param score_path: List with all the scores in each cycle per each run
     :param accuracy_path: List with all the accuracies in each cycle per each run
