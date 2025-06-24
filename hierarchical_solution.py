@@ -46,7 +46,7 @@ def quick_flip(data, T, options, subject_arrangement):
 
     # * dividing into a hierarchy of subject groups
     levels = len(subject_arrangement)  # no of levels in the hierarchical division
-    curr_data = copy.deepcopy(data)
+    curr_data = data
 
     helper_dict = {}  # * saves the group info for each level of grouping
     old_T = T
@@ -55,7 +55,7 @@ def quick_flip(data, T, options, subject_arrangement):
     # to record results
     if options["record_results"]:
         score_path_per_level = {}
-        accuracy_path_per_level = {}
+        accuracy_path_per_level = {}  # fixme: unnecessary to plot accuracy
 
     for level in range(levels):
         # * 1. Creating the GROUPS for the current level
@@ -135,7 +135,7 @@ def get_subject_data(data, helper_dict, level):
             data_for_curr_group = dict()  # * dict to hold the data for all subs in curr group
 
             for subject in subj_list:
-                curr_sub_data = data[subject]  # * TODO: verify that the change in keys is working
+                curr_sub_data = data[subject]
                 data_for_curr_group[subject] = (curr_sub_data)
 
             data_for_all_groups.append(data_for_curr_group)
@@ -168,19 +168,11 @@ def get_T(T, helper, group, level):
     """
     groups_in_curr_level = helper[level]
 
-    if level == 0:  # * we're grouping for the first time
-        subjects_in_curr_group = groups_in_curr_level[group]
-        # * determine data length for subjects in the group
-        T_for_group = np.empty([len(subjects_in_curr_group)])
-        for s in range(len(subjects_in_curr_group)):
-            T_for_group[s] = T[subjects_in_curr_group[s]]
-
-    else:
-        subjects_in_curr_group = groups_in_curr_level[group]
-        # * determine data length for subjects in the group
-        T_for_group = np.empty([len(subjects_in_curr_group)])
-        for s in range(len(subjects_in_curr_group)):
-            T_for_group[s] = T[subjects_in_curr_group[s]]
+    subjects_in_curr_group = groups_in_curr_level[group]
+    # * determine data length for subjects in the group
+    T_for_group = np.empty([len(subjects_in_curr_group)])
+    for s in range(len(subjects_in_curr_group)):
+        T_for_group[s] = T[subjects_in_curr_group[s]]
 
     return T_for_group
 
@@ -266,6 +258,7 @@ def flippidydoo(flip_helper, helper_dict):
     them_flips = np.zeros([subject_channel_matrix.shape[0], subject_channel_matrix.shape[1]])
     for subs in range(subject_channel_matrix.shape[0]):
         for channels in range(subject_channel_matrix.shape[1]):
+            # * if a subjects' channel has been flipped an even number of times - it ends up not being flipped at all
             if subject_channel_matrix[subs, channels]%2 == 0 or subject_channel_matrix[subs, channels]==0:
                 them_flips[subs, channels] = 0
             else:

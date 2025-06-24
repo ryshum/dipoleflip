@@ -38,26 +38,12 @@ def grid_search(subjects, channels, options):
 
     assert subjects is not None and channels is not None, 'Number of subjects and channels in your data configuration have not been specified'
 
-    if subjects is None and channels is None: # fixme: this if statement can be gotten rid of
-        # * to go through the desired data folders
-        subjects = [10]  # e.g., subjects = [10, 25, 50, 100]
-        channels = [10]  # e.g., channels = [10, 20, 30, 40, 50]
-
-        for sub in subjects:
-            for ch in channels:
-                folder = 'sub_' + str(sub) + '_ch_' + str(ch)  # * name convention of the folder containing data
-                pair_directory = options_grid_search['main_dir']/folder
-                ref_data_available = options_grid_search['ref_data_available']
-                low_power_solution = options_grid_search['method_name']
-                record_results = options_grid_search['record_results']
-                compute_and_apply_flips(pair_directory, ref_data_available, low_power_solution=low_power_solution,
-                                        record_results=record_results)  # * will compute 'flips' and flip data and print results
-
-    else:  # * when the user specifies the no. of subjects and channels
-        folder = 'sub_' + str(subjects) + '_ch_' + str(channels)  # *  name convention of the folder containing data
-        pair_directory = options_grid_search['main_dir'] + folder
-        ref_data_available = options_grid_search['ref_data_available']
-        low_power_solution = True if options_grid_search['method_name']=="Hierarchical" else False
-        record_results = options_grid_search['record_results']
-        compute_and_apply_flips(pair_directory, ref_data_available, low_power_solution=low_power_solution,
+    for sub in subjects:
+        for ch in channels:  # * when the user specifies the no. of subjects and channels
+            folder = 'sub_' + str(sub) + '_ch_' + str(ch)  # *  name convention of the folder containing data
+            pair_directory = options_grid_search['main_dir'] + folder
+            ref_data_available = options_grid_search['ref_data_available']
+            low_power_solution = True if options_grid_search['method_name']=="Hierarchical" else False
+            record_results = options_grid_search['record_results']
+            compute_and_apply_flips(pair_directory, ref_data_available, low_power_solution=low_power_solution,
                                 record_results=record_results)  # * will compute 'flips' and flip data and print results

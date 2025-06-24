@@ -2,6 +2,7 @@ import copy
 import numpy as np
 import random
 import pandas as pd
+import pingouin
 from scipy.stats import zscore
 
 def compute_flip(data, flips_ref, T, options):

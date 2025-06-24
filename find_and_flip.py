@@ -88,6 +88,7 @@ def compute_and_apply_flips(directory, ref_data_available, low_power_solution, r
 
         subject_arr = get_user_input(sub_no) # * the arrangement to group subjects
 
+
         if record_results:
             [flips, scores_per_level, accuracies_per_level] = quick_flip(amb_dict, ntimepts, options, subject_arrangement=subject_arr)
             create_plots(scores_per_level, accuracies_per_level, low_power_solution)
