@@ -38,7 +38,7 @@ def grid_search(subjects, channels, options):
 
     assert subjects is not None and channels is not None, 'Number of subjects and channels in your data configuration have not been specified'
 
-    if subjects is None and channels is None: # todo this if statement can be gotten rid of
+    if subjects is None and channels is None: # fixme: this if statement can be gotten rid of
         # * to go through the desired data folders
         subjects = [10]  # e.g., subjects = [10, 25, 50, 100]
         channels = [10]  # e.g., channels = [10, 20, 30, 40, 50]

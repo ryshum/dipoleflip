@@ -100,12 +100,11 @@ def compute_and_apply_flips(directory, ref_data_available, low_power_solution, r
             [flips, score, accuracy] = compute_flip(amb_dict, flips_ref, ntimepts, options)
             create_plots(score, accuracy, low_power_solution)
         else:
-            #flips = compute_flip(amb_dict, flips_ref, ntimepts, options)
-            import cProfile
-            profiler = cProfile.Profile()
-            flips = profiler.runcall(compute_flip, amb_dict, flips_ref, ntimepts, options)  # con() is actually run here
-            profiler.print_stats()
-            #flips = cProfile.run('compute_flip(amb_dict, flips_ref, ntimepts, options)')
+            flips = compute_flip(amb_dict, flips_ref, ntimepts, options)
+            # import cProfile
+            # profiler = cProfile.Profile()
+            # flips = profiler.runcall(compute_flip, amb_dict, flips_ref, ntimepts, options)  # con() is actually run here
+            # profiler.print_stats()
 
 
     # * flipping data
@@ -123,7 +122,7 @@ def compute_ref_flips(amb_dict, orig_dict):
     :param orig_dict: contains original unambiguous data for all subjects
     :return: flips_ref: the [subject x channels] matrix containing 1 for channels that are falsely flipped and 0 otherwise
     '''
-    no_chans = amb_dict[1].shape[1]
+    no_chans = amb_dict[0].shape[1]
     no_subs = len(amb_dict.keys())
     flips_ref = np.zeros((no_subs, no_chans))
 

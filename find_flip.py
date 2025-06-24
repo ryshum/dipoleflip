@@ -2,7 +2,7 @@ import copy
 import numpy as np
 import random
 import pandas as pd
-import pingouin
+from scipy.stats import zscore
 
 def compute_flip(data, flips_ref, T, options):
     """
@@ -25,16 +25,18 @@ def compute_flip(data, flips_ref, T, options):
                     "no_runs": 5,
                     "prob_init_flip": 0.25,
                     "standardize": 1,
-                    "partial": 1,
+                    "partial": 0,
                     "verbose": 1,
                     "max_cyc": 10000,
-                    "threshold": 0.00001,
+                    "threshold": 0.001,
                     "hierarchical_sol": 0,
-                    "record_results": False}
+                    "record_results": False,
+                    "score_type": 'Global'}
 
     # * if options are specified, set their values here
-    for key, value in options.items():
-        options_flip[key] = value
+    if len(options) > 0:
+        for key, value in options.items():
+            options_flip[key] = value
 
     # * get uncorrected, unflipped autocorrelation matrix - [subj x lags x channels x channels]
     covmats_unflipped = get_global_variables_for_bitflip_eval(data, T, options_flip)
@@ -59,7 +61,7 @@ def compute_flip(data, flips_ref, T, options):
 
         # * computing initial score (without flipping any channel for any subject)
         flips_per_run = init_solution(no_subjects, no_channels, options_flip, runs+1)
-        score_r = evaluate_flips(flips_per_run, covmats_unflipped, sub=None, chan=None)
+        score_r = evaluate_flips(flips_per_run, covmats_unflipped, sub=None, chan=None, options=options_flip)
 
         # * adding the initial score to the overall score matrix/path
         score_path_per_run[0] = score_r
@@ -88,7 +90,7 @@ def compute_flip(data, flips_ref, T, options):
 
             for ch in channels:
                 for sub in range(no_subjects):
-                    score_matrix[sub, ch] = evaluate_flips(flips_per_run, covmats_unflipped, sub, ch)
+                    score_matrix[sub, ch] = evaluate_flips(flips_per_run, covmats_unflipped, sub, ch, options_flip)
 
             score_r = np.amax(score_matrix)  # * take max of scores for all channel & subject combinations
             max_sub, max_channel = np.where(score_matrix == score_r) # * channel and subject where score is max
@@ -132,7 +134,7 @@ def compute_flip(data, flips_ref, T, options):
     if options_flip['verbose'] == 1:
         print ('Final Score: ' + str(score))
 
-    # among the equiv flips, keep ones with lowest no. of flips
+    # among the equiv flips, keep ones with the lowest no. of flips
     for subs in range(no_subjects):
         if np.mean(flips[subs]) > 0.5:
             flips[subs] = 1 - flips[subs]
@@ -238,7 +240,7 @@ def get_cov_mats(X_norm, options, *flips):
             if flips[sub, chan] == 1:
                 X_norm[subject_key][chan] = -X_norm[subject_key][chan]
 
-        covmats[sub, :, :, :] = lowmem_xcorr(X_norm[subject_key], max_lag)
+        covmats[sub, :, :, :] = lowmem_xcorr(X_norm[subject_key], max_lag, options)
 
         for lags in range(2*max_lag + 1):
             # * extract the diagonal of the covariance matrix for the current lag value
@@ -252,11 +254,12 @@ def get_cov_mats(X_norm, options, *flips):
     return covmats_copy  # return to 'get_all_cov_mats'
 
 
-def lowmem_xcorr(X_norm, max_lag):
+def lowmem_xcorr(X_norm, max_lag, options):
     """
     Function to computed correlation using the lag-embedded data.
     :param X_norm: numpy_ndarray, single subject data after being standardized
     :param max_lag: int, number of lags to be implemented in the data
+    :param options: dict, contains various parameters already set
     :return: final: numpy.ndarray, lag-embedded data - size = (lags x channels x channels)
     """
 
@@ -264,15 +267,18 @@ def lowmem_xcorr(X_norm, max_lag):
     no_samples = X_norm.shape[0]
 
     lags = np.arange(-max_lag, max_lag+1, 1)
-    embedded_data = embed_data(X_norm, no_samples, lags)
+    embedded_data = circshift_embed_data(X_norm, no_samples, lags)
 
-    # * compute correlation of embedded data
-    col_names = ["ch_" + str(i) for i in np.arange(embedded_data.shape[1])]
-    df = pd.DataFrame(data=embedded_data, columns=col_names)
+    # * compute pairwise partial correlations bw a pair of channels - controlling for other channels
+    if options['partial']:
+        col_names = ["ch_" + str(i) for i in np.arange(embedded_data.shape[1])]
+        df = pd.DataFrame(data=embedded_data, columns=col_names)
 
-    # * compute pairwise partial correlations (raw Pearson correlation)
-    partial_corr = df.pcorr().round(3)
-    corr = partial_corr.to_numpy()
+        partial_corr = df.pcorr().round(3)
+        corr = partial_corr.to_numpy()
+    else:
+        # * compute Pearson correlation of embedded data
+        corr = np.corrcoef(embedded_data, rowvar=False)
 
     # *
     no_lags = 2*max_lag + 1
@@ -306,7 +312,38 @@ def lowmem_xcorr(X_norm, max_lag):
 
 def embed_data(X_norm, no_samples, lags):
     """
-    Embeds lags in the data.
+    Embeds lags in the data - causality respecting.
+    :param X_norm: numpy.ndarray, single subject data after being standardized
+    :param no_samples: int, number of time/data points for the current subject
+    :param lags: numpy.ndarray, array of lags; lags = 2*max_lag + 1
+    :return: X: numpy.ndarray, lag-embedded data ; size = ((no_samples-maxlag) x no_channels*lags)
+    """
+    no_channels = X_norm.shape[1]
+    lags = np.array(lags)
+    min_lag = np.min(lags)
+    max_lag = np.max(lags)
+    L = len(lags)
+
+    # Define the common time range where all lagged versions are valid
+    start = -min_lag
+    end = no_samples - max_lag
+    T_valid = end - start  # number of valid time points
+
+    # Pre-allocate output matrix
+    X_lagged = np.zeros((T_valid, no_channels * L))
+
+    for i, lag in enumerate(lags):
+        # Shift the data by lag relative to the valid center region
+        X_slice = X_norm[start + lag : end + lag, :]  # shape: (T_valid, no_channels)
+        X_lagged[:, i * no_channels : (i + 1) * no_channels] = X_slice
+
+    return X_lagged
+
+
+def circshift_embed_data(X_norm, no_samples, lags):
+    """
+    REDUNDANT!!!!
+    Embeds lags in the data. todo: delete
     :param X_norm: numpy.ndarray, single subject data after being standardized
     :param no_samples: int, number of time/data points for the current subject
     :param lags: numpy.ndarray, array of lags; lags = 2*max_lag + 1
@@ -365,13 +402,14 @@ def init_solution(no_subjects, no_channels, options, runs):
     return flips_r
 
 
-def evaluate_flips(flips_per_run, covmats_unflipped, sub, chan):
+def evaluate_flips(flips_per_run, covmats_unflipped, sub, chan, options):
     """
     Evaluates the change in flips for subject 'sub' and channel 'chan'
     :param flips_per_run: numpy.ndarray, flips matrix for the current run
     :param covmats_unflipped: numpy.ndarray, autocorrelation matrix
     :param sub: int, the subject whom we flip the channel 'chan' for
     :param chan: int, the channel we want to flip
+    :param options: dict, contains various parameters already set
     :return: score: float, the sum of all partial correlations
     """
     flips_r = np.copy(flips_per_run)
@@ -386,8 +424,11 @@ def evaluate_flips(flips_per_run, covmats_unflipped, sub, chan):
     covmats_copy = np.copy(covmats_unflipped)
     covmats = apply_sign(covmats_copy, sign_matrix)
 
-    # * obtain the score - sum of all partial correlations
-    score = get_score(covmats)
+    # * obtain the score - sum of all correlations
+    if options['score_type'] == 'Pairwise':
+        score = get_pairwise_score(covmats)
+    elif options['score_type'] == 'Global':
+        score = get_global_score(covmats)
     return score
 
 
@@ -429,12 +470,12 @@ def apply_sign(covmats_unflipped, sign_matrix):
     return covmats_unflipped
 
 
-def get_score(covmats):
-    '''
-    Computes the score i.e. the sum of all partial correlations across subjects and channels.
+def get_pairwise_score(covmats):
+    """
+    Computes the pairwise score i.e. comparison of inter-subject consistency for each channel pair separately.
     :param covmats: The autocorrelation matrix/tensor [subjects x lags x channels x channels]
     :return: score: A score value that is the sum of all partial correlations.
-    '''
+    """
     no_subject = covmats.shape[0]
     no_channel = covmats.shape[2]
     no_elem = (no_channel**2 - no_channel) * ((no_subject * (no_subject-1))/2)
@@ -442,19 +483,39 @@ def get_score(covmats):
     score_matrix = np.zeros((no_subject, no_subject, no_channel, no_channel))
     score = 0
 
-    sumi = np.zeros((no_channel, no_channel))
-
     for row in range(no_channel):
         for col in range(no_channel):
             if row != col:
                 M_new = covmats[:,:,col,row]
+                # * normalise each subject's lag vector
+                M_new = zscore(M_new, axis=1, ddof=1)
                 C = np.matmul(M_new, np.transpose(M_new))
                 C[np.diag_indices_from(C)] = 0  # set all diag elements to zero
                 score_matrix[:,:,col,row] = C
                 score = score + np.sum(np.triu(C))
-                sumi[row, col] = np.sum(np.triu(C))
 
     score = score/no_elem
+    return score
+
+def get_global_score(covmats):
+    """
+    Computes the global autocorr score which measures inter-subject similarity by correlating
+    each subject's full autocovariance structure as opposed to a single pair of channels.
+    :param covmats: Autocovariance tensor of shape [subjects x lags x channels x channels]
+    :return: score: Mean correlation between all subject pairs
+    """
+    no_subjects = covmats.shape[0]
+
+    # * reshape to [subjects x features] where features = channels * channels * lags
+    X = covmats.transpose(0, 2, 3, 1).reshape(no_subjects, -1)
+
+    # * compute subject-by-subject correlation matrix
+    corr_matrix = np.corrcoef(X)
+
+    # * extract upper triangle (excluding diagonal)
+    upper = np.triu_indices(no_subjects, k=1)
+    score = np.mean(corr_matrix[upper])
+
     return score
 
 
