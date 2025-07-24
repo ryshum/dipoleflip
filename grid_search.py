@@ -1,7 +1,7 @@
 from pathlib import Path
 from find_and_flip import compute_and_apply_flips
 
-# Our data is arranged in the following manner:
+# The simulated data is arranged in the following manner:
 # For each configuration {i.e., no. of channels , no. of subjects} there exists a folder which contains
 # [2*no. of subjects] files. Half of these are the ground-truth/reference files ("unflipped_data_...") and the rest are
 # ambiguously-flipped ("..._ambiguous_data") and the algorithm is applied to the latter.
@@ -46,4 +46,4 @@ def grid_search(subjects, channels, options):
             low_power_solution = True if options_grid_search['method_name']=="Hierarchical" else False
             record_results = options_grid_search['record_results']
             compute_and_apply_flips(pair_directory, ref_data_available, low_power_solution=low_power_solution,
-                                record_results=record_results)  # * will compute 'flips' and flip data and print results
+                               record_results=record_results)  # * will compute 'flips' and flip data and print results

@@ -5,7 +5,7 @@ import pandas as pd
 import pingouin
 from scipy.stats import zscore
 
-def compute_flip(data, flips_ref, T, options):
+def compute_flip(data, flips_ref, T, options, covmats=False):
     """
     This function uses the concept of maximising the sum of all partial correlations to find the most appropriate combination
     of "flips". It runs the greedy search "options['no_runs']" number of times with each run having "options['max_cyc']" cycles
@@ -14,11 +14,9 @@ def compute_flip(data, flips_ref, T, options):
     :param flips_ref: numpy.ndarray, array of 1's and 0's to show whether a channel for a subject was flipped in the "original" dataset
     :param T: numpy.ndarray, no. of time/data points for each subject
     :param options: dict, contains various parameters to set
+    :param covmats: boolean, True if 'data' is an autocorrelation matrix instead of raw data, default=False
     :return: flips: numpy.ndarray, 1's and 0's indicating whether to flip a channel for a subject or not
     """
-
-    # * assert/check if data is a dict of dfs
-    assert dict(data), "Data should be a 'dict' of Dataframes containing data for all subjects"
 
     # * set default values
     options_flip = {"max_lag": 10,
@@ -39,8 +37,13 @@ def compute_flip(data, flips_ref, T, options):
         for key, value in options.items():
             options_flip[key] = value
 
-    # * get uncorrected, unflipped autocorrelation matrix - [subj x lags x channels x channels]
-    covmats_unflipped = get_global_variables_for_bitflip_eval(data, T, options_flip)
+    if not covmats:  # if we input raw data as opposed to the autocorrelation matrix
+        # * assert/check if data is a dict of dfs
+        assert dict(data), "Data should be a 'dict' of Dataframes containing data for all subjects"
+        # * get uncorrected, unflipped autocorrelation matrix - [subj x lags x channels x channels]
+        covmats_unflipped = get_global_variables_for_bitflip_eval(data, T, options_flip)
+    else:
+        covmats_unflipped = data
 
     # * if reference flips (i.e. ground truth data) isn't available, set to true
     if flips_ref.size == 0:
@@ -150,36 +153,46 @@ def compute_flip(data, flips_ref, T, options):
 def get_global_variables_for_bitflip_eval(data, T, options):
     """
     Constructs an initial, uncorrected, unflipped Autocorrelation Matrix/Tensor with size [subjects x lags x channels x channels].
-    :param data: dict, contains the 'ambiguous' data for all subjects
+    :param data: dict, contains the 'ambiguous' data for all subjects or np.ndarray or pd.Dataframe for a single subject
     :param T: numpy.ndarray, no. of time/data points for each subject
     :param options: dict, contains various parameters already set
     :return: covmats_unflipped: numpy.ndarray, autocorrelation matrix for all subjects with lags embedded; size = (subjects x lags x channels x channels)
     """
     # * Prepare necessary data structures
-    # * check if data is already an array of autocorrelation matrices
-    first_key = next(iter(data))
-    if data[first_key].ndim == 3:
-        return data  # return data as the covmats_unflipped
+    # * check if data is a collection of multiple subject data i.e., in the form of a dict of dataframes
+    if isinstance(data, dict):
+        return get_all_cov_mats(data, options)
+    elif isinstance(data, np.ndarray) or isinstance(data, pd.DataFrame): # check if data is a single subject's data in the form of a numpy array or dataframe
+        return get_all_cov_mats(data, options)
     else:
-        return get_all_cov_mats(data, options)  # returns covmats_unflipped
+        raise TypeError("Data must be either a numpy array or dataframe for a single subject. Or a dict of dataframes for multiple subjects in a group.")
 
 
 def get_all_cov_mats(data, options):
     """
     Processes & standardizes the data before it can be lag-embedded to obtain the Autocorrelation Matrix.
-    :param data: dict, contains the 'ambiguous' data for all subjects
+    :param data: dict, contains the 'ambiguous' data for all subjects or np.ndarray or pd.Dataframe for a single subject
     :param options: dict, contains various parameters already set
     :return: covmats_unflipped: numpy.ndarray, autocorrelation matrix for all subjects with lags embedded; size = (subjects x lags x channels x channels)
     """
+    if isinstance(data, dict): # for multiple subjects in a group
+        no_subjects = len(data.keys())
+        X_norm_all_sub = {} # * save all subjects' normalized data here
 
-    no_subjects = len(data.keys())
-    X_norm_all_sub = {} # * save all subjects' normalized data here
+        # * if we're performing hierarchical solution, the keys of the subject-data dict will be random
+        if options["hierarchical_sol"]:
+            subject_list = np.array(list(data.keys()))
+        else:
+            subject_list = np.arange(0, no_subjects)
 
-    # * if we're performing hierarchical solution, the keys of the subject-data dict will be random
-    if options["hierarchical_sol"]:
-        subject_list = np.array(list(data.keys()))
-    else:
-        subject_list = np.arange(0, no_subjects)
+    else:  # for a single subject
+        X_norm_all_sub = {}
+        subject_list = [0]
+        if isinstance(data, np.ndarray):
+            data_pd = pd.DataFrame(data)
+        transformed_data = {}
+        transformed_data[0] = data_pd
+        data = transformed_data
 
     # * if standarization needs to be performed
     if options["standardize"]:
@@ -207,7 +220,7 @@ def get_all_cov_mats(data, options):
     return covmats_unflipped
 
 
-def get_cov_mats(X_norm, options, *flips):
+def get_cov_mats(X_norm, options, flips=None):
     """
     Gets the autocorrelation matrices upto the specified 'maxlag', for each trial.
     :param X_norm: dict, the standardized, 'ambiguous' data for all subjects
@@ -221,7 +234,7 @@ def get_cov_mats(X_norm, options, *flips):
     max_lag = options["max_lag"]
 
     # * if flips aren't specified, create an array of zeros
-    if flips == ():
+    if flips is None:
         flips = np.zeros((no_subject, no_channels))
 
     # * create an empty covariance matrix

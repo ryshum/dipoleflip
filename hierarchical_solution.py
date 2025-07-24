@@ -6,7 +6,7 @@ import random
 import numpy as np
 
 
-def quick_flip(data, T, options, subject_arrangement):
+def quick_flip(data, T, options, subject_arrangement, covmats=False):
     """
         This function computes the flips in a 'hierarchical' manner.
 
@@ -14,6 +14,7 @@ def quick_flip(data, T, options, subject_arrangement):
         :param T: numpy.ndarray, no. of time/data points for each subject
         :param options: dict, contains various parameters to set
         :param subject_arrangement: numpy.ndarray, supposed to be arranged in the following way:
+        :param covmats: boolean, True if 'data' is an autocorrelation matrix instead of raw data, default=False
         if there are 50 subjects in total, we can create a hierarchy in the following manner:
         [10,2] -> this means that:
         -> divide the 50 subjects into 10 groups (of 5 subjects each) first
@@ -140,7 +141,7 @@ def get_subject_data(data, helper_dict, level):
 
             data_for_all_groups.append(data_for_curr_group)
 
-    else:
+    else: # todo repeated here in the if statement
         # * obtain the grouping information for the current level
         current_groups = helper_dict[level]
         data_for_all_groups = []  # * list of dicts to hold the data for all the groups in the current level
