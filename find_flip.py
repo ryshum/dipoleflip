@@ -281,7 +281,7 @@ def lowmem_xcorr(X_norm, max_lag, options):
     no_samples = X_norm.shape[0]
 
     lags = np.arange(-max_lag, max_lag+1, 1)
-    embedded_data = circshift_embed_data(X_norm, no_samples, lags)
+    embedded_data = embed_data(X_norm, no_samples, lags)
 
     # * compute pairwise partial correlations bw a pair of channels - controlling for other channels
     if options['partial']:
@@ -338,16 +338,16 @@ def embed_data(X_norm, no_samples, lags):
     max_lag = np.max(lags)
     L = len(lags)
 
-    # Define the common time range where all lagged versions are valid
+    # * define the common time range where all lagged versions are valid
     start = -min_lag
     end = no_samples - max_lag
     T_valid = end - start  # number of valid time points
 
-    # Pre-allocate output matrix
+    # * pre-allocate output matrix
     X_lagged = np.zeros((T_valid, no_channels * L))
 
     for i, lag in enumerate(lags):
-        # Shift the data by lag relative to the valid center region
+        # * shift the data by lag relative to the valid center region
         X_slice = X_norm[start + lag : end + lag, :]  # shape: (T_valid, no_channels)
         X_lagged[:, i * no_channels : (i + 1) * no_channels] = X_slice
 
@@ -395,7 +395,7 @@ def circshift_embed_data(X_norm, no_samples, lags):
 
 def init_solution(no_subjects, no_channels, options, runs):
     '''
-    Creates a randomly -initialized "flips" matrix with 1's and 0's.
+    Creates a randomly-initialized "flips" matrix with 1's and 0's.
     :param no_subjects: int
     :param no_channels: int
     :param options: dict, contains various parameters already set

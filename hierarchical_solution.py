@@ -6,7 +6,7 @@ import random
 import numpy as np
 
 
-def quick_flip(data, T, options, subject_arrangement, covmats=False):
+def quick_flip(data, T, options, subject_arrangement):
     """
         This function computes the flips in a 'hierarchical' manner.
 
@@ -14,12 +14,13 @@ def quick_flip(data, T, options, subject_arrangement, covmats=False):
         :param T: numpy.ndarray, no. of time/data points for each subject
         :param options: dict, contains various parameters to set
         :param subject_arrangement: numpy.ndarray, supposed to be arranged in the following way:
-        :param covmats: boolean, True if 'data' is an autocorrelation matrix instead of raw data, default=False
+
         if there are 50 subjects in total, we can create a hierarchy in the following manner:
         [10,2] -> this means that:
         -> divide the 50 subjects into 10 groups (of 5 subjects each) first
         -> then those 10 groups/ 10 super-subjects into 2 groups of 5 subjects each
         Important: for a good accuracy/score each group must have 5 or more subjects - a good example is [10,2] for 50 subjects
+
         :return: the_flips_matrix: numpy.ndarray, 1's and 0's indicating whether to flip a channel for a subject or not
         """
 
@@ -127,33 +128,19 @@ def get_subject_data(data, helper_dict, level):
     :param level: int, the current level on which we are making groups
     :return: data_for_all_groups: list of dict of Dataframe, data for each subject arranged into the respective groups
     """
-    if level == 0:  # * i.e., we're grouping for the first time
-        # * obtain the grouping information for the current level
-        current_groups = helper_dict[level]
-        data_for_all_groups = []  # * list of dicts to hold the data for all the groups in the current level
-        for group in range(len(current_groups)):
-            subj_list = current_groups[group]
-            data_for_curr_group = dict()  # * dict to hold the data for all subs in curr group
 
-            for subject in subj_list:
-                curr_sub_data = data[subject]
-                data_for_curr_group[subject] = (curr_sub_data)
+    # * obtain the grouping information for the current level
+    current_groups = helper_dict[level]
+    data_for_all_groups = []  # * list of dicts to hold the data for all the groups in the current level
+    for group in range(len(current_groups)):
+        subj_list = current_groups[group]
+        data_for_curr_group = dict()  # * dict to hold the data for all subs in curr group
 
-            data_for_all_groups.append(data_for_curr_group)
+        for subject in subj_list:
+            curr_sub_data = data[subject]
+            data_for_curr_group[subject] = (curr_sub_data)
 
-    else: # todo repeated here in the if statement
-        # * obtain the grouping information for the current level
-        current_groups = helper_dict[level]
-        data_for_all_groups = []  # * list of dicts to hold the data for all the groups in the current level
-        for group in range(len(current_groups)):
-            subj_list = current_groups[group]
-            data_for_curr_group = dict()  # * dict to hold the data for all subs in curr group
-
-            for subject in subj_list:
-                curr_sub_data = data[subject]  # * note: the keys in data start from 0 once we've already made groups
-                data_for_curr_group[subject] = (curr_sub_data)
-
-            data_for_all_groups.append(data_for_curr_group)
+        data_for_all_groups.append(data_for_curr_group)
 
     return data_for_all_groups
 
@@ -168,7 +155,6 @@ def get_T(T, helper, group, level):
     :return: T_for_group: numpy.ndarray, no. of samples for each subject's data in the current group
     """
     groups_in_curr_level = helper[level]
-
     subjects_in_curr_group = groups_in_curr_level[group]
     # * determine data length for subjects in the group
     T_for_group = np.empty([len(subjects_in_curr_group)])

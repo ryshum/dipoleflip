@@ -47,21 +47,33 @@ The command will create a new conda environment called 'test' with all the packa
 
 ```conda activate test```
 
-- To run the algorithm, you can input the required inputs in the file `test_with_grid_search.py`:
+- To run the algorithm, you can input the required inputs in the file `simple_test.py`:
+- Specify the required parameters in the function below
 ```
-# specify which dataset(s) you want to run
-subjects = [50]
-channels = [20]
 
-# specify the options
-options = {'main_dir': '/Users/my_dataset/',  # location of the data folders
-            'method_name': 'Hierarchical', # "Normal" or "Hierarchical"
-            'ref_data_available': True,  # set to True if ground-truth data is available; by default = False
-            'record_results': False,  # whether you want to obtain results for plots
-           'score_type': 'Global', # "Pairwise" or "Global"
-           'partial': 1 # set to 1 to compute partial correlation between channels, otherwise normal
+def run_test():
+    main_dir = '/simulated_data/sub_10_ch_10/' # location of the data folders
+    ref_data_available = False  # set to True if ground-truth data is available; by default = False
+    data_type = '.mat' # set to either '.mat' or '.npy' (not yet implemented)
+    file_naming_convention = ["ambiguous_data", "unflipped"] # how to identify one's "ambiguous" and "unflipped" (reference) files, if len<2, user has no ref data present
+
+    # * default values to input to the find_flip.py
+    user_specified_options = {"max_lag": 10,
+                    "no_batch": 0,
+                    "no_runs": 5,
+                    "prob_init_flip": 0.25,
+                    "standardize": 1,
+                    "partial": 0, # set to 1 to compute partial correlation between channels, otherwise normal
+                    "verbose": 1,
+                    "max_cyc": 10000,
+                    "threshold": 0.001,
+                    "hierarchical_sol": 0, # set to 1 if you want to run the low-power solution
+                    "record_results": False,  # whether you want to obtain results for plotting later on
+                    "score_type": 'Global'}  # "Pairwise" or "Global"
+
  }
 ```
+- And then simply call ```run_test()```
 
 ### Method 3. Running the pypi package (in progress)
 Once the package is published to pypi, you'd be able to install it via:
