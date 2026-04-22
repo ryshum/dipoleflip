@@ -3,6 +3,7 @@ import numpy as np
 import random
 import pandas as pd
 import pingouin
+import time
 from scipy.stats import zscore
 
 def compute_flip(data, flips_ref, T, options, covmats=False):
@@ -55,17 +56,21 @@ def compute_flip(data, flips_ref, T, options, covmats=False):
     no_channels = covmats_unflipped.shape[2]
     score = -float('Inf')
 
-    score_path = list()  # * holds score for all runs
-    accuracy_path = list() # * holds the accuracy for all runs
+    score_path = list()  # * holds per-iteration score for all runs
+    accuracy_path = list() # * holds the per-iteration accuracy for all runs
+    time_path = list()  # * holds per-iteration times for all runs
     assert float(options_flip['max_cyc']) != float('inf') and options_flip['no_batch'] <= 0, 'If max_cyc is inf, no_batch must be 0'
 
     # * performing greedy search
     for runs in range(options_flip['no_runs']):
         score_path_per_run = np.empty([1,1])
+        time_path_per_run = []
 
         # * computing initial score (without flipping any channel for any subject)
         flips_per_run = init_solution(no_subjects, no_channels, options_flip, runs+1)
+        t0 = time.perf_counter()  # * start TIMER
         score_r = evaluate_flips(flips_per_run, covmats_unflipped, sub=None, chan=None, options=options_flip)
+        time_path_per_run.append(time.perf_counter() - t0)  # * end TIMER
 
         # * adding the initial score to the overall score matrix/path
         score_path_per_run[0] = score_r
@@ -85,6 +90,7 @@ def compute_flip(data, flips_ref, T, options, covmats=False):
 
         # * running greedy search to improve score
         for cyc in range(options_flip['max_cyc']):
+            t_cyc_start = time.perf_counter()  # * start TIMER
             if options_flip['no_batch'] > 0:
                 channels = random.sample(range(1, no_channels), options_flip['no_batch'])
             else:
@@ -101,6 +107,7 @@ def compute_flip(data, flips_ref, T, options, covmats=False):
 
             score_diff = score_r - np.max(score_path_per_run)  # * diff b/w the curr score and the max score in the path
             if score_diff > options_flip['threshold']:
+                time_path_per_run.append(time.perf_counter() - t_cyc_start)  # end TIMER
                 flips_per_run[max_sub, max_channel] = 1 - flips_per_run[max_sub, max_channel]  # * invert 0 to 1 or vice versa
                 score_path_per_run = np.append(score_path_per_run, score_r)  # * append when score is greater than previous
 
@@ -116,14 +123,17 @@ def compute_flip(data, flips_ref, T, options, covmats=False):
                         print('Run ' + str(runs) + ' Cycle ' + str(cyc) + ' Score ' + str(score_r) +' Flipped channel: '+str(max_channel)+' Flipped subject: '+str(max_sub))
 
             elif options_flip['no_batch'] == 0:
+                #time_path_per_run.append(time.perf_counter() - t_cyc_start)  # end TIMER
                 break
 
             else:
+                #time_path_per_run.append(time.perf_counter() - t_cyc_start)  # end TIMER
                 print('Run '+str(runs)+' Cycle '+str(cyc))
                 print('No increase in score in the current cycle')
 
-        # * append the scores for this run to the arrays for all runs
+        # * append the scores + times for this run to the arrays for all runs
         score_path.append(score_path_per_run)
+        time_path.append(np.array(time_path_per_run))
 
         # * append accuracies
         if not no_ref_flips:
@@ -145,7 +155,7 @@ def compute_flip(data, flips_ref, T, options, covmats=False):
 
     # do we want to get iterations vs. score vs. accuracy plots
     if options_flip["record_results"]:
-        return [flips, score_path, accuracy_path]
+        return [flips, score_path, accuracy_path, time_path]
     else:
         return flips
 
@@ -282,6 +292,7 @@ def lowmem_xcorr(X_norm, max_lag, options):
 
     lags = np.arange(-max_lag, max_lag+1, 1)
     embedded_data = embed_data(X_norm, no_samples, lags)
+    #embedded_data = circshift_embed_data(X_norm, no_samples, lags)
 
     # * compute pairwise partial correlations bw a pair of channels - controlling for other channels
     if options['partial']:
@@ -349,7 +360,10 @@ def embed_data(X_norm, no_samples, lags):
     for i, lag in enumerate(lags):
         # * shift the data by lag relative to the valid center region
         X_slice = X_norm[start + lag : end + lag, :]  # shape: (T_valid, no_channels)
-        X_lagged[:, i * no_channels : (i + 1) * no_channels] = X_slice
+        #X_lagged[:, i * no_channels : (i + 1) * no_channels] = X_slice
+        # lag-major within each channel block
+        for c in range(no_channels):
+            X_lagged[:, c * L + i] = X_slice[:, c]
 
     return X_lagged
 

@@ -9,8 +9,9 @@ from plots import create_plots
 
 def run_test():
     # specify the options
-    main_dir = '/Users/ryshum/MATLAB/matlab_signflip/new/sub_10_ch_10/' # location of the data folders
-    ref_data_available = False  # set to True if ground-truth data is available; by default = False
+    main_dir = '/Users/ryshum/MATLAB/matlab_signflip/new/sub_50_ch_10/' # location of the data folders
+    #main_dir = '/Users/ryshum/PycharmProjects/dipoleflip/simulated_data/sub_10_ch_10/'
+    ref_data_available = True  # set to True if ground-truth data is available; by default = False
     data_type = '.mat' # set to either '.mat' or '.npy' (not yet implemented)
     file_naming_convention = ["ambiguous_data", "unflipped"] # how to identify one's "ambiguous" and "unflipped" (reference) files, if len<2, user has no ref data present
 
@@ -25,8 +26,8 @@ def run_test():
                     "max_cyc": 10000,
                     "threshold": 0.001,
                     "hierarchical_sol": 0, # set to 1 if you want to run the low-power solution
-                    "record_results": False,  # whether you want to obtain results for plotting later on
-                    "score_type": 'Global'}  # "Pairwise" or "Global"
+                    "record_results": True,  # whether you want to obtain results for plotting later on
+                    "score_type": 'Pairwise'}  # "Pairwise" or "Global"
 
     # todo add a naming convention check for your data variable in the .mat file
     # run the algorithm
@@ -146,8 +147,8 @@ def grid_search(main_dir, data_type, ref_data_available, file_naming_convention,
     # * compute flips using normal method
     else:
         if options_flip['record_results']:
-            [flips, score, accuracy] = compute_flip(covmat_data, flips_ref, ntimepts, options, covmats=True)
-            create_plots(score, accuracy, low_power_solution=False)
+            [flips, score, accuracy, time] = compute_flip(covmat_data, flips_ref, ntimepts, options, covmats=True)
+            create_plots(score, accuracy, time, low_power_solution=False)
         else:
             flips = compute_flip(covmat_data, flips_ref, ntimepts, options, covmats=True)
 

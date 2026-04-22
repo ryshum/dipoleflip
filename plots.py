@@ -2,11 +2,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 plt.rc('font',family='Arial', size=14)
 
-def create_plots(score_path, accuracy_path, low_power_solution):
+def create_plots(score_path, accuracy_path, time_path, low_power_solution):
     """
     This function creates 2 types of plots for the solution obtained for the specified dataset:
     1. A Score Vs. Iterations plot
     2. An Accuracy Vs. Iteration plot (for normal method and not hierarchical)
+    3. A Accuracy Vs. Time plot
 
     :param score_path: List with all the scores in each cycle per each run
     :param accuracy_path: List with all the accuracies in each cycle per each run
@@ -30,7 +31,7 @@ def create_plots(score_path, accuracy_path, low_power_solution):
         fig, ax1 = plt.subplots()
         for i, (iters, sc, color) in enumerate(zip(iterations, scores, hex_colors)):
             x_coordinates = range(1, int(iters)+1)
-            ax1.plot(x_coordinates, sc, label=f'Run {i + 1}', color=color, linestyle='-', markersize=5)
+            ax1.plot(x_coordinates, sc, label=f'Run {i + 1}', color=color, linestyle='-', markersize=5, linewidth=4)
 
         ax1.set_xlabel('Iterations', fontsize=14)
         ax1.set_ylabel('Score', fontsize=14)
@@ -43,14 +44,14 @@ def create_plots(score_path, accuracy_path, low_power_solution):
         ax1.set_facecolor('none')
 
         # Save the first plot
-        fig.savefig('iter_vs_score.png', transparent=True)
+        fig.savefig('iter_vs_score_50.png', transparent=True)
         plt.show()
 
         # * Plotting iterations vs accuracy for all runs -------------------------------------------------
         fig, ax2 = plt.subplots()
         for i, (iters, acc, color) in enumerate(zip(iterations, accuracies, hex_colors)):
             x_coordinates = range(1, int(iters) + 1)
-            ax2.plot(x_coordinates, acc, label=f'Run {i + 1}', color=color, linestyle='-', markersize=5)
+            ax2.plot(x_coordinates, acc, label=f'Run {i + 1}', color=color, linestyle='-', markersize=5, linewidth=4)
 
         ax2.set_xlabel('Iterations')
         ax2.set_ylabel('Accuracy')
@@ -63,7 +64,27 @@ def create_plots(score_path, accuracy_path, low_power_solution):
         ax2.set_facecolor('none')
 
         # Save the second plot
-        fig.savefig('iter_vs_acc.png', transparent=True)
+        fig.savefig('iter_vs_acc_50.png', transparent=True)
+        plt.show()
+
+        # * Plotting time vs accuracy for all runs -------------------------------------------------
+        fig, ax3 = plt.subplots()
+        for i, (t, acc, color) in enumerate(zip(time_path, accuracies, hex_colors)):
+            x_coordinates = np.cumsum(t) / 60
+            ax3.plot(x_coordinates, acc, label=f'Run {i + 1}', color=color, linestyle='-', markersize=5, linewidth=4)
+
+        ax3.set_xlabel('Cumulative Time (minutes)')
+        ax3.set_ylabel('Accuracy')
+        ax3.legend(loc='lower right')
+        ax3.legend(prop=dict(size=10))
+        ax3.grid(which='major', color='#DDDDDD', linewidth=0.8)
+        ax3.grid(which='minor', color='#EEEEEE', linestyle=':', linewidth=0.5)
+        ax3.minorticks_on()
+        ax3.set_title('Cumulative Time vs. Accuracy for All Runs', fontweight='bold')
+        ax3.set_facecolor('none')
+
+        # Save the second plot
+        fig.savefig('time_vs_acc_50.png', transparent=True)
         plt.show()
 
 
