@@ -3,38 +3,23 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from find_flip import get_global_variables_for_bitflip_eval, compute_flip
+from flip_data import flip_data ### Olivier
 from hierarchical_solution import quick_flip
 from plots import create_plots
+import re
 
+    # todo also let the user specify how the data is stored within the .mat (extra parameter)
 
-def run_test():
-    # specify the options
-    main_dir = '/Users/ryshum/MATLAB/matlab_signflip/new/sub_50_ch_10/' # location of the data folders
-    #main_dir = '/Users/ryshum/PycharmProjects/dipoleflip/simulated_data/sub_10_ch_10/'
-    ref_data_available = True  # set to True if ground-truth data is available; by default = False
-    data_type = '.mat' # set to either '.mat' or '.npy' (not yet implemented)
-    file_naming_convention = ["ambiguous_data", "unflipped"] # how to identify one's "ambiguous" and "unflipped" (reference) files, if len<2, user has no ref data present
+def run_test(main_dir, ref_data_available, data_type, file_naming_convention, data_storage_convention, transp, user_specified_options):
 
-    # * default values to input to the find_flip.py
-    user_specified_options = {"max_lag": 10,
-                    "no_batch": 0,
-                    "no_runs": 5,
-                    "prob_init_flip": 0.25,
-                    "standardize": 1,
-                    "partial": 0, # set to 1 to compute partial correlation between channels, otherwise normal
-                    "verbose": 1,
-                    "max_cyc": 10000,
-                    "threshold": 0.001,
-                    "hierarchical_sol": 0, # set to 1 if you want to run the low-power solution
-                    "record_results": True,  # whether you want to obtain results for plotting later on
-                    "score_type": 'Pairwise'}  # "Pairwise" or "Global"
+    print('Providing inputs')
 
     # todo add a naming convention check for your data variable in the .mat file
     # run the algorithm
-    grid_search(main_dir, data_type, ref_data_available, file_naming_convention, options=user_specified_options)
+    return grid_search(main_dir, data_type, ref_data_available, file_naming_convention, data_storage_convention, transp, options=user_specified_options)
 
 
-def grid_search(main_dir, data_type, ref_data_available, file_naming_convention, options):
+def grid_search(main_dir, data_type, ref_data_available, file_naming_convention, data_storage_convention, transp, options):
     # * default values to input to the find_flip.py
     options_flip = {"max_lag": 10,
                     "no_batch": 0,
@@ -63,7 +48,16 @@ def grid_search(main_dir, data_type, ref_data_available, file_naming_convention,
     if data_type == '.mat':
         conv = file_naming_convention[0] # ambiguous data naming convention specified by the user
         convention = f'**/*{conv}*.mat' # designed to load all .mat files with the specific naming convention in the specified directory
-        matfiles = sorted(Path(directory_in_str).glob(convention), key=lambda path: int(path.stem.rsplit("subject_", 1)[1]))
+
+        # todo improve logic
+        if ref_data_available == False: # use all files contained in main_dir
+            directory_in_str = Path(main_dir)
+            matfiles = list(directory_in_str.iterdir())
+            # sort by subject number
+            matfiles = sorted(matfiles, key=lambda x: int(re.search(r'\d+', x.stem).group()))
+        else:
+            matfiles = sorted(Path(directory_in_str).glob(convention), key=lambda path: int(path.stem.rsplit("subject_", 1)[1]))
+
         ntimepts = [] # for obtaining ntimepts (T) for each subject
         n_subjects = len(matfiles)
 
@@ -78,10 +72,16 @@ def grid_search(main_dir, data_type, ref_data_available, file_naming_convention,
             path_in_str = str(matfile)
             mat = scipy.io.loadmat(path_in_str)
 
-            mat = mat["my_struct"]["data"][0,0]  # this is for my simulated old data
+            # todo: sharpen logic, because this can differ quite a lot across users and datasets
+            mat = mat[data_storage_convention] # e.g. mat["subject"] or mat["data"][0,0]
+            # * option to transpose the data if required
+            if transp == True:
+                mat = mat.T
+
+            ## mat = mat["my_struct"]["data"][0,0]  # this is for my simulated old data
             #mat = mat['data'] # todo change the convention as per user's input
 
-            T = max(mat.shape) # get the number of samples or timepts in the data
+            T = np.shape(mat)[0] # get the number of samples or timepts in the data
             ntimepts.append(T)
 
             # normal method - we compute the AC matrix before
@@ -151,6 +151,8 @@ def grid_search(main_dir, data_type, ref_data_available, file_naming_convention,
             create_plots(score, accuracy, time, low_power_solution=False)
         else:
             flips = compute_flip(covmat_data, flips_ref, ntimepts, options, covmats=True)
+
+        return flips, flip_data(amb_dict, T, flips), matfiles
 
 
 

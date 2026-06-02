@@ -26,13 +26,16 @@ def flip_data(data, T, flips):
     print(subject_list)
 
     for sub in range(len(subject_list)):
+        subj_key = subject_list[sub]
         for chan in range(no_channels):
             subj_key = subject_list[sub]
             # * if the value of flips at the sub and chan is 1, flip all data for the sub and chan
             if flips[sub, chan] == 1:
                 data_copy[subj_key].iloc[:, chan] = -data_copy[subj_key].iloc[:, chan]
-
-        output_df = pd.concat([output_df, data_copy[subj_key]])
+        subj_df = data_copy[subj_key].copy()
+        # add subject identifier
+        subj_df['subject'] = subj_key
+        output_df = pd.concat([output_df, subj_df], ignore_index=True)
 
     print("Done Flipping")
     return output_df
