@@ -456,7 +456,7 @@ def evaluate_flips(flips_per_run, covmats_unflipped, sub, chan, options):
     if options['score_type'] == 'Pairwise':
         score = get_pairwise_score(covmats)
     elif options['score_type'] == 'Global':
-        score = get_global_score(covmats)
+        score = get_global_score_high_dim(covmats)
     return score
 
 
@@ -543,6 +543,16 @@ def get_global_score(covmats):
     # * extract upper triangle (excluding diagonal)
     upper = np.triu_indices(no_subjects, k=1)
     score = np.mean(corr_matrix[upper])
+
+    return score
+
+def get_global_score_high_dim(covmats):
+    no_subjects = covmats.shape[0]
+    no_channels = covmats.shape[2]
+
+    # high-C regime: use Frobenius norm of mean
+    mean_cov = np.mean(covmats, axis=0)
+    score = np.sum(mean_cov ** 2)
 
     return score
 
